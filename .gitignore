@@ -1,0 +1,9 @@
+## Compiled Objects ##
+*.o
+*.exe
+*.hex
+*.elf
+*.map
+
+#LUFA Library
+LUFA/*
