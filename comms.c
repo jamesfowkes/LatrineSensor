@@ -93,8 +93,6 @@ void COMMS_Init(COMMS_TYPE eType)
 	llapDevice.applicationMsgHandler = llapApplicationHandler;
 	llapDevice.sendRequest = llapSendRequest;
 	
-	LLAP_StartDevice(&llapDevice);
-	
 	switch (eCommsType)
 	{
 	case CT_UART:
@@ -108,6 +106,8 @@ void COMMS_Init(COMMS_TYPE eType)
 	//case CT_SPI: // Not supported
 		break;
 	}
+	
+	LLAP_StartDevice(&llapDevice);
 }
 
 void COMMS_Send(char * s)
@@ -175,7 +175,7 @@ static void llapSendRequest(const char * msgBody)
 		#if defined(UART)
 		UART_PutStr(UART0, (uint8_t*)msgBody);
 		#elif defined(SWS)
-		SWS_Transmit(msgBody, strlen(msgBody), NULL, 0);
+		SWS_SimpleTransmit(msgBody);
 		#endif
 		break;
 	default:
