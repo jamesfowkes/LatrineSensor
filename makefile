@@ -27,6 +27,7 @@ INCLUDE_DIRS = \
 
 CFILES = \
 	latrinesensor.c \
+	app_statemachine.c \
 	comms.c \
 	tempsense.c \
 	ircounter.c \

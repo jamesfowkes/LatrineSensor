@@ -36,6 +36,8 @@
  * Local Application Includes
  */
 
+#include "app_test_harness.h"
+#include "app_statemachine.h"
 #include "tempsense.h"
 #include "ircounter.h"
 #include "comms.h"
@@ -64,71 +66,12 @@ typedef enum level_test_mode_enum LEVEL_TEST_MODE_ENUM;
  * Private Function Prototypes
  */
 
-static void setupStateMachine(void);
 static void setupTimers(void);
 
-// State machine handler functions
-static void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-static void testCount(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-
-static void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-static void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-static void sendPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-static void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-
-#ifdef TEST_HARNESS
-static void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-#else
-#define onStateChange NULL
-#endif
-
 /*
- * Main state machine typedefs and structures
+ * Main state machine pointers
  */
-enum states
-{
-	IDLE,
-	COUNTING,
-	SENDING,
-	LEVEL_TEST,
-	MAX_STATES
-};
-typedef enum states STATES;
 
-enum events
-{
-	TIMER,
-	TEST_LEVEL,
-	COMPLETE,
-	DETECT,
-	NO_DETECT,
-	PIT_FULL,
-	PIT_NOT_FULL,
-	SEND_COMPLETE,
-	MAX_EVENTS
-};
-typedef enum events EVENTS;
-
-static const SM_STATE stateIdle = {IDLE, NULL, onStateChange};
-static const SM_STATE stateCounting = {COUNTING, NULL, onStateChange};
-static const SM_STATE stateSending = {SENDING, NULL, onStateChange};
-static const SM_STATE stateLevelTest = {LEVEL_TEST, NULL, onStateChange};
-
-static const SM_ENTRY sm[] = {
-	{&stateIdle,		TIMER,			startCounting,	&stateCounting	},
-	{&stateIdle,		TEST_LEVEL,		startLevelTest,	&stateLevelTest	},
-		
-	{&stateCounting,	TIMER,			testCount,		&stateCounting	},
-	{&stateCounting,	NO_DETECT,		NULL,			&stateIdle		},
-	{&stateCounting,	DETECT,			sendData,		&stateSending	},
-	
-	{&stateLevelTest,	TIMER,			testPitFull,	&stateLevelTest	},
-	{&stateLevelTest,	PIT_FULL,		sendPitFull,	&stateSending	},
-	{&stateLevelTest,	PIT_NOT_FULL,	NULL,			&stateIdle		},
-	
-	{&stateSending,		SEND_COMPLETE,	NULL,			&stateIdle		}
-};
- 
 /* 
  * Private Variables
  */
@@ -144,15 +87,13 @@ static uint16_t currentIRCount;
 
 int main(void)
 {
-	#ifdef TEST_HARNESS
-	setbuf(stdout, NULL);
-	#endif
+	DO_TEST_HARNESS_SETUP();
 	
 	/* Disable watchdog: not required for this application */
 	MCUSR &= ~(1 << WDRF);
 	wdt_disable();
 	
-	setupStateMachine();
+	smIndex = APPSM_SetupStateMachine();
 	setupTimers();
 	
 	TS_Setup();
@@ -167,9 +108,8 @@ int main(void)
 	
 	while (true)
 	{
-		#ifdef TEST_HARNESS
-		TMR8_Tick_Kick(50);
-		#endif
+	
+		DO_TEST_HARNESS_RUNNING();
 		
 		if (TMR8_Tick_TestAndClear(&applicationTick))
 		{
@@ -189,13 +129,6 @@ int main(void)
 	}
 }
 
-static void setupStateMachine(void)
-{
-	SMM_Config(1, 20);
-	smIndex = SM_Init(&stateIdle, MAX_EVENTS, MAX_STATES, sm);
-	SM_SetActive(smIndex, true);
-}
-
 static void setupTimers(void)
 {
 	TMR8_Tick_Init(2, 0);
@@ -209,7 +142,7 @@ static void setupTimers(void)
 	TMR8_Tick_AddTimerConfig(&ambientADCTick);
 }
 
-static void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -219,7 +152,7 @@ static void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	TS_StartConversion(SENSOR_OUTFLOW);
 }
 
-static void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -237,13 +170,13 @@ static void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	}
 }
 
-static void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	SM_Event(smIndex, IR_SensorHasTriggered(IR_LEVEL) ?  PIT_FULL : PIT_NOT_FULL);
 }
 
-static void stopCounting(void)
+void stopCounting(void)
 {
 	//TODO: Disable IR output
 	PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
@@ -251,7 +184,7 @@ static void stopCounting(void)
 	SM_Event(smIndex, IR_SensorHasTriggered(IR_OUTFLOW) ? DETECT: NO_DETECT);
 }
 
-static void testCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+void testCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -271,13 +204,13 @@ static void testCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	}
 }
 
-static void sendPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+void sendPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	COMMS_Send("PITFULL");
 }
 
-static void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -303,16 +236,6 @@ static void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	
 	COMMS_Send(message);
 }
-
-#ifdef TEST_HARNESS
-static void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e)
-{
-	char * states[] = { "IDLE", "COUNTING", "SENDING", "LEVEL_TEST"};
-	char * events[] = { "TIMER", "TEST_LEVEL", "COMPLETE", "DETECT", "NO_DETECT", "PIT_FULL", "PIT_NOT_FULL", "SEND_COMPLETE"};
-
-	printf("Entering state %s from %s with event %s\n", states[new], states[old], events[e]);
-}
-#endif
 
 ISR(IR_OUTFLOW_VECTOR)
 {

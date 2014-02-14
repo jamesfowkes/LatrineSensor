@@ -7,6 +7,3 @@
 
 #LUFA Library
 LUFA/*
-
-#Secondary Makefiles
-*.mk
