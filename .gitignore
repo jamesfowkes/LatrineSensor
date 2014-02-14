@@ -5,5 +5,14 @@
 *.elf
 *.map
 
-#LUFA Library
-LUFA/*
+## Release Folder
+Release/*
+
+## Eclipse Files
+.cproject
+.project
+
+##Symlinked Libraries
+Libs
+
+
