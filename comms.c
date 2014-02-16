@@ -37,6 +37,12 @@
 
 #include "comms.h"
 
+/*
+ * Utility Library Includes
+ */
+
+#include "util_memory_placement.h"
+
 /* 
  * Private Variables
  */
@@ -44,13 +50,13 @@
 static LLAP_DEVICE llapDevice;
 static COMMS_TYPE eCommsType;
 
-static char deviceName[] = "PITSENSOR";
-static char deviceType[] = "U00000001";
-static char fwVersion[] = "1.00";
-static char serialNum[] = "000000";
+IN_PMEM(static const char deviceName[]) = "PITSENSOR";
+IN_PMEM(static const char deviceType[]) = "U00000001";
+IN_PMEM(static const char fwVersion[]) = "1.00";
+IN_PMEM(static const char serialNum[]) = "000000";
 
-static char rxBuffer[13];
-static char txBuffer[13];
+static char txrxBuffer[13]; // Use same buffer for transmit and receive
+
 static uint8_t rxIndex;
 
 #if defined(SWS)
@@ -77,8 +83,6 @@ void COMMS_Init(COMMS_TYPE eType)
 	rxIndex = 0;
 	s_bSWSerialInterrupt = false;
 	
-	LLAP_Init();
-	
 	// Setup the LLAP device
 	llapDevice.id[0] = '-';
 	llapDevice.id[1] = '-';	
@@ -86,7 +90,7 @@ void COMMS_Init(COMMS_TYPE eType)
 	llapDevice.devType = deviceType;
 	llapDevice.fwVer = fwVersion;
 	llapDevice.serNum = serialNum;
-	llapDevice.msgBuffer = txBuffer;
+	llapDevice.msgBuffer = txrxBuffer;
 	
 	// Link LLAP object to local handler functions
 	llapDevice.genericMsgHandler = llapGenericHandler;
@@ -99,7 +103,8 @@ void COMMS_Init(COMMS_TYPE eType)
 		#if defined(UART)
 		UART_Init(UART0, 4800, 14, 14, false);
 		#elif defined(SWS)
-		SWS_TxInit(IO_PORTA, 0); // TODO: set actual port/pin
+		SWS_SetBaudRate(LIB_SWS_BAUD_4800);
+		SWS_TxInit(IO_PORTA, 5); // TODO: set actual port/pin
 		#endif
 		break;
 	default:
@@ -112,7 +117,8 @@ void COMMS_Init(COMMS_TYPE eType)
 
 void COMMS_Send(char * s)
 {
-	LLAP_SendOutgoingMessage(&llapDevice, s);
+	SWS_SimpleTransmit(s);
+	//LLAP_SendOutgoingMessage(&llapDevice, s);
 }
 
 void COMMS_Check(void)
@@ -144,12 +150,12 @@ static void uartCheck(void)
 		#if defined(UART)
 		rxBuffer[rxIndex] = UART_GetChar(UART0, NULL);
 		#elif defined(SWS)
-		(void)SWS_Receive(rxBuffer, sizeof(rxBuffer), true);
+		(void)SWS_Receive(txrxBuffer, sizeof(txrxBuffer), true);
 		#endif
 		
-		if (strlen(rxBuffer) == LLAP_MESSAGE_LENGTH)
+		if (strlen(txrxBuffer) == LLAP_MESSAGE_LENGTH)
 		{
-			LLAP_HandleIncomingMessage(&llapDevice, rxBuffer);
+			LLAP_HandleIncomingMessage(&llapDevice, txrxBuffer);
 			rxIndex = 0;
 		}
 	}

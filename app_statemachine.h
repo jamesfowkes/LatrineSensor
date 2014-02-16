@@ -26,6 +26,6 @@ enum events
 typedef enum events EVENTS;
 
 
-uint8_t APPSM_SetupStateMachine(void);
+int8_t APPSM_SetupStateMachine(void);
 
 #endif

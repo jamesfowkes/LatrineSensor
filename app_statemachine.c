@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stddef.h>
 
 /*
  * Generic Library Includes
@@ -42,17 +43,23 @@ static const SM_ENTRY sm[] = {
 	{&stateLevelTest,	PIT_FULL,		sendPitFull,	&stateSending	},
 	{&stateLevelTest,	PIT_NOT_FULL,	NULL,			&stateIdle		},
 	
-	{&stateSending,		SEND_COMPLETE,	NULL,			&stateIdle		}
+	{&stateSending,		SEND_COMPLETE,	NULL,			&stateIdle		},
+
+	{NULL,				(STATES)0,		NULL,			NULL}
 };
 
-uint8_t APPSM_SetupStateMachine(void)
+int8_t APPSM_SetupStateMachine(void)
 {
-	uint8_t smIndex;
+	int8_t smIndex= -1;
 	
-	SMM_Config(1, 20);
+	SMM_Config(1, 5);
 	smIndex = SM_Init(&stateIdle, MAX_EVENTS, MAX_STATES, sm);
-	SM_SetActive(smIndex, true);
 	
+	if (smIndex >= 0)
+	{
+		SM_SetActive(smIndex, true);
+	}
+
 	return smIndex;
 }
 

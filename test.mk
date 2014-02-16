@@ -1,8 +1,8 @@
 NAME = latrinesensor_test
 CC = gcc 
-FLAGS = -Wall -Wextra -lpthread -DTEST_HARNESS -DF_CPU=8000000
+FLAGS = -Wall -Wextra -lpthread -DTEST_HARNESS -DF_CPU=8000000 -DTX_BUFFER_SIZE=15 -std=c99
 
-LIBS_DIR = C:/Users/fowkes_james/Documents/GitHub/Code-Library
+LIBS_DIR = /home/james/Documents/Eclipse/Libs
 
 INCLUDE_DIRS = \
 	-I$(LIBS_DIR)/AVR \
