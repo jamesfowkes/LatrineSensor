@@ -1,4 +1,4 @@
-NAME=lsns
+NAME=LatrineSensor
 
 CC=avr-gcc
 
@@ -53,6 +53,7 @@ OPTS = \
 	-DSUPPRESS_PCINT2 \
 	-DSUPPRESS_PCINT3 \
 	-DMEMORY_POOL_BYTES=128 \
+	-DTX_BUFFER_SIZE=15 \
 	-ffunction-sections \
 	-std=c99
 	
@@ -85,8 +86,13 @@ $(NAME).elf: $(OBJDEPS)
 %.o:%.c
 	$(CC) $(INCLUDE_DIRS) $(OPTS) -O$(OPT_LEVEL) -mmcu=$(MCU_TARGET) -c $< -o $@
 
+upload:
+	avr-objcopy -R .eeprom -O ihex $(NAME).elf  $(NAME).hex
+	avrdude -pt84 -cusbtiny -Uflash:w:$(NAME).hex:a
+
 clean:
 	$(RM) $(NAME).elf
+	$(RM) $(NAME).hex
 	$(RM) $(OBJDEPS)
 	$(RM) $(LIBS_DIR)/AVR/lib_swserial.o
 	$(RM) $(LIBS_DIR)/AVR/lib_uart.o
