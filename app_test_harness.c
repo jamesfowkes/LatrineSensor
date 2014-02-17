@@ -25,5 +25,5 @@ void DO_TEST_HARNESS_SETUP(void)
 
 void DO_TEST_HARNESS_RUNNING(void)
 {
-	TMR8_Tick_Kick(50);
+	
 }
