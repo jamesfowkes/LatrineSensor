@@ -35,7 +35,6 @@ static const SM_ENTRY sm[] = {
 	{&stateIdle,		TIMER,			startCounting,	&stateCounting	},
 	{&stateIdle,		TEST_LEVEL,		startLevelTest,	&stateLevelTest	},
 		
-	{&stateCounting,	TIMER,			testCount,		&stateCounting	},
 	{&stateCounting,	NO_DETECT,		NULL,			&stateIdle		},
 	{&stateCounting,	DETECT,			sendData,		&stateSending	},
 	

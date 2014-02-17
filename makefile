@@ -32,11 +32,11 @@ CFILES = \
 	tempsense.c \
 	ircounter.c \
 	$(LIBS_DIR)/AVR/lib_clk.c \
+	$(LIBS_DIR)/AVR/lib_sleep.c \
+	$(LIBS_DIR)/AVR/lib_wdt.c \
 	$(LIBS_DIR)/AVR/lib_io.c \
 	$(LIBS_DIR)/AVR/lib_fuses.c \
 	$(LIBS_DIR)/AVR/lib_adc.c \
-	$(LIBS_DIR)/AVR/lib_tmr8.c \
-	$(LIBS_DIR)/AVR/lib_tmr8_tick.c \
 	$(LIBS_DIR)/AVR/lib_pcint.c \
 	$(LIBS_DIR)/Protocols/llap.c \
 	$(LIBS_DIR)/Generics/memorypool.c \

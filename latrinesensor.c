@@ -10,10 +10,11 @@
  * AVR Includes (Defines and Primitives)
  */
 #include "avr/io.h"
-#include "avr/wdt.h"
 #include <avr/power.h>
+#include <avr/sleep.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
+#include <util/delay.h>
 
 /*
  * AVR Library Includes
@@ -21,6 +22,7 @@
 
 #include "lib_io.h"
 #include "lib_wdt.h"
+#include "lib_sleep.h"
 #include "lib_pcint.h"
 
 #include "lib_clk.h"
@@ -49,11 +51,14 @@
  * Defines and typedefs
  */
 
-#define FAST_DETECT_TICK_MS			(100)
-#define SLOW_IDLE_TICK_MS 			(2500)
-#define LEVEL_TEST_TICK_MS			(1000)
-#define AMBIENT_ADC_TICK_MS			(30000)
-#define IR_PULSE_TIME_MS			(5)
+// Make sure these defines are kept in sync or bad things will happen.
+#define IDLE_WDT_TIME_SECS		(2)
+#define IDLE_WDT_TIME_SELECT	(WDTO_2S)
+
+#define ACTIVE_WDT_TIME_MS		(15)
+#define ACTIVE_WDT_TIME_SELECT	(WDTO_15MS)
+
+#define SHORT_IR_DELAY_US			(200)
 
 #define IR_OUTFLOW_VECTOR			PCINT1_vect // TODO: Set correct vector
 #define IR_OUTFLOW_PCINT_NUMBER		10			// TODO: Set correct number
@@ -88,6 +93,9 @@ typedef enum level_test_mode_enum LEVEL_TEST_MODE_ENUM;
 static void setupTimers(void);
 static void setupIO(void);
 
+static void testForDetection(void);
+static void sleepUntilInterrupt(void);
+
 /*
  * Main state machine pointers
  */
@@ -100,11 +108,10 @@ static int8_t smIndex;
 
 static LEVEL_TEST_MODE_ENUM elevelTestMode = LVL_MODE_SW;
 
-static TMR8_TICK_CONFIG applicationTick;
-static TMR8_TICK_CONFIG ambientADCTick;
-static TMR8_TICK_CONFIG irPulseTick;
+static WDT_SLEEP_TICK idleTick;
+static WDT_SLEEP_TICK activeTick;
 
-static uint16_t currentIRCount;
+static bool irTriggered;
 
 int main(void)
 {
@@ -118,8 +125,8 @@ int main(void)
 	setupTimers();
 	
 	//TS_Setup();
-	//IR_Reset(IR_OUTFLOW);
-	//IR_Reset(IR_LEVEL);
+	IR_Reset(IR_OUTFLOW);
+	IR_Reset(IR_LEVEL);
 	
 	COMMS_Init(CT_UART);
 		
@@ -129,28 +136,67 @@ int main(void)
 	{
 		DO_TEST_HARNESS_RUNNING();
 
-		if (TMR8_Tick_TestAndClear(&applicationTick))
+		TS_Check();
+		
+		if (WDT_TestAndClear(&idleTick))
 		{
+			// Kicks the application out of idle
 			TEST_LED_TOGGLE;
-			COMMS_Send("TESTMESSAGE");
-			//SM_Event(smIndex, TIMER);
+			TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
+			SM_Event(smIndex, TIMER);
 		}
 		
-		//if (TMR8_Tick_TestAndClear(&ambientADCTick))
+		if (WDT_TestAndClear(&activeTick))
 		{
-			//TS_StartConversion(SENSOR_AMBIENT);
+			TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
+			
+			// Briefly turn IR LED on, then off. 
+			IO_On(IR_OUTFLOW_LED_PINS, IR_OUTFLOW_LED_PIN);
+			_delay_us(SHORT_IR_DELAY_US);
+			IO_Off(IR_OUTFLOW_LED_PINS, IR_OUTFLOW_LED_PIN);
+			// Check if the pulse was registered
+			testForDetection();
 		}
 
-		if (TMR8_Tick_TestAndClear(&irPulseTick))
+		if ( TS_IsTimeForOutflowRead() )
 		{
-			//IO_Toggle(IR_OUTFLOW_LED_PINS, IR_OUTFLOW_LED_PIN);
+			TS_StartConversion(SENSOR_OUTFLOW);
+		}
+		else if ( TS_IsTimeForAmbientRead() )
+		{
+			TS_StartConversion(SENSOR_AMBIENT);
 		}
 
-		/*COMMS_Check();
+		// TODO: Receive comms check
 		
-		TS_Check();*/
-				
-		wdt_
+		sleepUntilInterrupt();
+	}
+}
+
+static void sleepUntilInterrupt(void)
+{
+	/* Decide how deep the sleep should be.
+	Depends on which state application is in 
+	and if ADC is converting */
+	
+	if ( TS_ConversionStarted() )
+	{
+		SLEEP_Sleep(SLEEP_MODE_ADC, false);
+	}
+	else
+	{
+		if ( (STATES)SM_GetState(smIndex) != IDLE )
+		{
+			// Sleep for long idle tick, turn off everything except the watchdog timer
+			WDT_Sleep(&idleTick, SLEEP_MODE_PWR_SAVE, true);
+			WD_DISABLE();
+		}
+		else
+		{
+			// Sleep for short active tick, turn off everything except the watchdog timer
+			WDT_Sleep(&activeTick, SLEEP_MODE_PWR_SAVE, true);
+			WD_DISABLE();
+		}
 	}
 }
 
@@ -162,30 +208,16 @@ static void setupIO(void)
 
 static void setupTimers(void)
 {
-	TMR8_Tick_Init(3, 0);
-	
-	applicationTick.reload = SLOW_IDLE_TICK_MS;
-	applicationTick.active = true;
-	TMR8_Tick_AddTimerConfig(&applicationTick);
-	
-	ambientADCTick.reload = AMBIENT_ADC_TICK_MS;
-	ambientADCTick.active = true;
-	TMR8_Tick_AddTimerConfig(&ambientADCTick);
-
-	irPulseTick.reload = IR_PULSE_TIME_MS;
-	irPulseTick.active = true;
-	TMR8_Tick_AddTimerConfig(&irPulseTick);
+	idleTick.time = IDLE_WDT_TIME_SELECT;
+	activeTick.time = ACTIVE_WDT_TIME_SELECT;
 }
 
 void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	TEST_LED_ON;
-	TMR8_Tick_SetActive(&irPulseTick, true);
 	PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, true);
 	IR_Reset(IR_OUTFLOW);
-	TMR8_Tick_SetNewReloadValue(&applicationTick, FAST_DETECT_TICK_MS);
-	//TS_StartConversion(SENSOR_OUTFLOW);
 }
 
 void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
@@ -196,7 +228,6 @@ void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	{
 	case LVL_MODE_IR:
 		PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
-		TMR8_Tick_SetNewReloadValue(&applicationTick, LEVEL_TEST_TICK_MS);
 		IR_Reset(IR_LEVEL);
 		break;
 	case LVL_MODE_SW:
@@ -211,33 +242,18 @@ void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	SM_Event(smIndex, IR_SensorHasTriggered(IR_LEVEL) ?  PIT_FULL : PIT_NOT_FULL);
 }
 
-void stopCounting(void)
+static void testForDetection(void)
 {
-	TEST_LED_OFF;
-	TMR8_Tick_SetActive(&irPulseTick, false);
-	IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
-	PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
-	TMR8_Tick_SetNewReloadValue(&applicationTick, SLOW_IDLE_TICK_MS);
-	SM_Event(smIndex, IR_SensorHasTriggered(IR_OUTFLOW) ? DETECT: NO_DETECT);
-}
-
-void testCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
-{
-	(void)old; (void)new; (void)e;
-
-	bool countingStopped = IR_UpdateCount(IR_OUTFLOW, currentIRCount);
-	currentIRCount = 0;
+	bool countingStopped = IR_UpdateCount(IR_OUTFLOW, irTriggered ? 1 : 0);
+	irTriggered = false;
 	
 	if (countingStopped)
 	{
 		// Nothing was detected this time, so send a detect/no detect event 
 		// final result to the state machine
-		stopCounting();
-	}
-	else
-	{
-		// Something was detected, so keep counting and monitoring outflow temperature
-	//	TS_StartConversion(SENSOR_OUTFLOW);
+		TEST_LED_OFF;
+		PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
+		SM_Event(smIndex, IR_SensorHasTriggered(IR_OUTFLOW) ? DETECT: NO_DETECT);
 	}
 }
 
@@ -251,31 +267,38 @@ void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
-	/*uint16_t detectDurationMs = IR_GetOutflowSenseDurationMs();
-	char message[] = "FLSH00000";
+	uint8_t detectDurationSecs = (IR_GetOutflowSenseDurationMs() + 500U) / 1000U;
 	
-	// uint16_t to string conversion:
-	message[4] = detectDurationMs / 10000;
-	detectDurationMs -= (message[4] * 10000);
-	message[5] = detectDurationMs / 1000;
-	detectDurationMs -= (message[5] * 1000);
-	message[6] = detectDurationMs / 100;
-	detectDurationMs -= (message[6] * 100);
-	message[7] = detectDurationMs / 10;
-	detectDurationMs -= (message[7] * 10);
-	message[8] = detectDurationMs;
+	char message[] = "aAA25000----";
+
+	// temperature to string conversion (outflow):
+	message[3] = 0; //TODO 
+	message[4] = 0; //TODO 
 	
+	// temperature to string conversion (ambient):
+	message[5] = 0; //TODO 
+	message[6] = 0; //TODO 
+	
+	// uint8_t duration to string conversion:
+	message[7] = detectDurationSecs / 100U;
+	detectDurationSecs -= (message[7] * 100U);
+	message[8] = detectDurationSecs / 10U;
+	detectDurationSecs -= (message[8] * 10U);
+	message[9] = detectDurationSecs;
+	
+	message[3] += '0';
 	message[4] += '0';
 	message[5] += '0';
 	message[6] += '0';
 	message[7] += '0';
 	message[8] += '0';
+	message[9] += '0';
 	
-	COMMS_Send(message);*/
+	COMMS_Send(message);
 	SM_Event(smIndex, SEND_COMPLETE);
 }
 
 ISR(IR_OUTFLOW_VECTOR)
 {
-	currentIRCount++;
+	irTriggered = true;
 }
