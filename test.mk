@@ -2,7 +2,7 @@ NAME = latrinesensor_test
 CC = gcc 
 FLAGS = -Wall -Wextra -lpthread -DTEST_HARNESS -DF_CPU=8000000 -DTX_BUFFER_SIZE=15 -std=c99
 
-LIBS_DIR = /home/james/Documents/Eclipse/Libs
+LIBS_DIR = ../Libs
 
 INCLUDE_DIRS = \
 	-I$(LIBS_DIR)/AVR \
@@ -21,6 +21,7 @@ CFILES = \
 	tempsense.c \
 	ircounter.c \
 	$(LIBS_DIR)/AVR/lib_io.c \
+	$(LIBS_DIR)/AVR/lib_fuses.c \
 	$(LIBS_DIR)/AVR/lib_adc.c \
 	$(LIBS_DIR)/AVR/lib_tmr8_tick.c \
 	$(LIBS_DIR)/AVR/Harness/lib_tmr8_tick_harness_functions.c \

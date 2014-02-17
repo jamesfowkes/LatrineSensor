@@ -20,6 +20,7 @@
  */
 
 #include "lib_io.h"
+#include "lib_wdt.h"
 #include "lib_pcint.h"
 
 #include "lib_clk.h"
@@ -109,9 +110,7 @@ int main(void)
 {
 	DO_TEST_HARNESS_SETUP();
 	
-	/* Disable watchdog: not required for this application */
-	MCUSR &= ~(1 << WDRF);
-	wdt_disable();
+	WD_DISABLE();
 	
 	smIndex = APPSM_SetupStateMachine();
 
@@ -151,7 +150,7 @@ int main(void)
 		
 		TS_Check();*/
 				
-		//TODO: sleepUntilInterrupt();
+		wdt_
 	}
 }
 

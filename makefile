@@ -12,7 +12,7 @@ else
 endif
 
 MCU_TARGET=attiny84
-LIBS_DIR = C:/Users/fowkes_james/Documents/GitHub/Code-Library
+LIBS_DIR = C:/Users/fowkes_james/Documents/GitHub/Libs
 
 OPT_LEVEL=s
 
