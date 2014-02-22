@@ -2,17 +2,11 @@ NAME=LatrineSensor
 
 CC=avr-gcc
 
-ifdef SystemRoot
-    RM = del /Q
-	CAT = type
-	FIXPATH = $(subst /,\,$1)
-else
-    RM = rm -f
-	CAT = cat
-endif
+RM = rm -f
+CAT = cat
 
 MCU_TARGET=attiny84
-LIBS_DIR = C:/Users/fowkes_james/Documents/GitHub/Libs
+LIBS_DIR = C:/Users/james/Documents/GitHub/Libs
 
 OPT_LEVEL=s
 

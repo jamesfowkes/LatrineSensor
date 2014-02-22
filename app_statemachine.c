@@ -26,9 +26,11 @@ static void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
 #define onStateChange NULL
 #endif
 
-static const SM_STATE stateIdle = {IDLE, NULL, onStateChange};
+static const SM_STATE stateIdle = {IDLE, NULL, onIdleState};
 static const SM_STATE stateCounting = {COUNTING, NULL, onStateChange};
-static const SM_STATE stateSending = {SENDING, NULL, onStateChange};
+static const SM_STATE stateSending1 = {SENDING1, NULL, onStateChange};
+static const SM_STATE stateSending2 = {SENDING2, NULL, onStateChange};
+static const SM_STATE stateSending3 = {SENDING3, NULL, onStateChange};
 static const SM_STATE stateLevelTest = {LEVEL_TEST, NULL, onStateChange};
 
 static const SM_ENTRY sm[] = {
@@ -36,14 +38,15 @@ static const SM_ENTRY sm[] = {
 	{&stateIdle,		TEST_LEVEL,		startLevelTest,	&stateLevelTest	},
 		
 	{&stateCounting,	NO_DETECT,		NULL,			&stateIdle		},
-	{&stateCounting,	DETECT,			sendData,		&stateSending	},
+	{&stateCounting,	DETECT,			wakeMaster,		&stateSending1	},
 	
-	{&stateLevelTest,	TIMER,			testPitFull,	&stateLevelTest	},
-	{&stateLevelTest,	PIT_FULL,		sendPitFull,	&stateSending	},
 	{&stateLevelTest,	PIT_NOT_FULL,	NULL,			&stateIdle		},
+	{&stateLevelTest,	PIT_FULL,		wakeMaster,		&stateSending1	},
 	
-	{&stateSending,		SEND_COMPLETE,	NULL,			&stateIdle		},
-
+	{&stateSending1,	SEND_COMPLETE,	startWakeTimer,	&stateSending2	},
+	{&stateSending2,	TIMER,			sendData,		&stateSending3	},
+	{&stateSending3,	SEND_COMPLETE,	NULL,			&stateIdle		},
+	
 	{NULL,				(STATES)0,		NULL,			NULL}
 };
 

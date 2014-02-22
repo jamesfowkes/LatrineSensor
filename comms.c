@@ -104,7 +104,7 @@ void COMMS_Init(COMMS_TYPE eType)
 		UART_Init(UART0, 4800, 14, 14, false);
 		#elif defined(SWS)
 		SWS_SetBaudRate(LIB_SWS_BAUD_4800);
-		SWS_TxInit(IO_PORTA, 5); // TODO: set actual port/pin
+		SWS_TxInit(IO_PORTA, 5);
 		#endif
 		break;
 	default:

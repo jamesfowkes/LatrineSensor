@@ -110,6 +110,9 @@ static LEVEL_TEST_MODE_ENUM elevelTestMode = LVL_MODE_SW;
 
 static WDT_SLEEP_TICK idleTick;
 static WDT_SLEEP_TICK activeTick;
+static WDT_SLEEP_TICK commsTick;
+
+static WDT_SLEEP_TICK * pNextTick;
 
 static bool irTriggered;
 
@@ -136,36 +139,44 @@ int main(void)
 	{
 		DO_TEST_HARNESS_RUNNING();
 
-		TS_Check();
+		//TS_Check();
 		
 		if (WDT_TestAndClear(&idleTick))
 		{
 			// Kicks the application out of idle
-			TEST_LED_TOGGLE;
-			TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
+			//TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
 			SM_Event(smIndex, TIMER);
 		}
 		
 		if (WDT_TestAndClear(&activeTick))
 		{
-			TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
+			//TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
+			TEST_LED_ON;
 			
 			// Briefly turn IR LED on, then off. 
-			IO_On(IR_OUTFLOW_LED_PINS, IR_OUTFLOW_LED_PIN);
+			IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
 			_delay_us(SHORT_IR_DELAY_US);
-			IO_Off(IR_OUTFLOW_LED_PINS, IR_OUTFLOW_LED_PIN);
+			IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
+			
+			TEST_LED_OFF;
+			
 			// Check if the pulse was registered
 			testForDetection();
 		}
 
-		if ( TS_IsTimeForOutflowRead() )
+		if (WDT_TestAndClear(&commsTick))
+		{
+			SM_Event(smIndex, TIMER);		
+		}
+		
+		/*if ( TS_IsTimeForOutflowRead() )
 		{
 			TS_StartConversion(SENSOR_OUTFLOW);
 		}
 		else if ( TS_IsTimeForAmbientRead() )
 		{
 			TS_StartConversion(SENSOR_AMBIENT);
-		}
+		}*/
 
 		// TODO: Receive comms check
 		
@@ -179,24 +190,15 @@ static void sleepUntilInterrupt(void)
 	Depends on which state application is in 
 	and if ADC is converting */
 	
-	if ( TS_ConversionStarted() )
+	/*if ( TS_ConversionStarted() )
 	{
 		SLEEP_Sleep(SLEEP_MODE_ADC, false);
 	}
-	else
+	else*/
 	{
-		if ( (STATES)SM_GetState(smIndex) != IDLE )
-		{
-			// Sleep for long idle tick, turn off everything except the watchdog timer
-			WDT_Sleep(&idleTick, SLEEP_MODE_PWR_SAVE, true);
-			WD_DISABLE();
-		}
-		else
-		{
-			// Sleep for short active tick, turn off everything except the watchdog timer
-			WDT_Sleep(&activeTick, SLEEP_MODE_PWR_SAVE, true);
-			WD_DISABLE();
-		}
+		// Sleep for long idle tick, turn off everything except the watchdog timer
+		WDT_Sleep(pNextTick, SLEEP_MODE_PWR_SAVE, true);
+		WD_DISABLE();
 	}
 }
 
@@ -210,14 +212,15 @@ static void setupTimers(void)
 {
 	idleTick.time = IDLE_WDT_TIME_SELECT;
 	activeTick.time = ACTIVE_WDT_TIME_SELECT;
+	pNextTick = &idleTick; 
 }
 
 void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
-	TEST_LED_ON;
 	PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, true);
 	IR_Reset(IR_OUTFLOW);
+	pNextTick = &activeTick;
 }
 
 void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
@@ -244,14 +247,13 @@ void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 
 static void testForDetection(void)
 {
-	bool countingStopped = IR_UpdateCount(IR_OUTFLOW, irTriggered ? 1 : 0);
+	bool countingStopped = IR_UpdateCount(IR_OUTFLOW, irTriggered ? 100 : 0);
 	irTriggered = false;
 	
 	if (countingStopped)
 	{
 		// Nothing was detected this time, so send a detect/no detect event 
 		// final result to the state machine
-		TEST_LED_OFF;
 		PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
 		SM_Event(smIndex, IR_SensorHasTriggered(IR_OUTFLOW) ? DETECT: NO_DETECT);
 	}
@@ -263,39 +265,58 @@ void sendPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	COMMS_Send("PITFULL");
 }
 
+void wakeMaster(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+{
+	(void)old; (void)new; (void)e;
+	COMMS_Send("WAKE");
+	SM_Event(smIndex, SEND_COMPLETE);
+}
+
+void startWakeTimer(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+{
+	(void)old; (void)new; (void)e;
+	pNextTick = &commsTick;
+}
+
 void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
 	uint8_t detectDurationSecs = (IR_GetOutflowSenseDurationMs() + 500U) / 1000U;
 	
-	char message[] = "aAA25000----";
+	char message[] =	"aAAFEOOAADDD";
 
 	// temperature to string conversion (outflow):
-	message[3] = 0; //TODO 
-	message[4] = 0; //TODO 
-	
-	// temperature to string conversion (ambient):
 	message[5] = 0; //TODO 
 	message[6] = 0; //TODO 
 	
-	// uint8_t duration to string conversion:
-	message[7] = detectDurationSecs / 100U;
-	detectDurationSecs -= (message[7] * 100U);
-	message[8] = detectDurationSecs / 10U;
-	detectDurationSecs -= (message[8] * 10U);
-	message[9] = detectDurationSecs;
+	// temperature to string conversion (ambient):
+	message[7] = 0; //TODO 
+	message[8] = 0; //TODO 
 	
-	message[3] += '0';
-	message[4] += '0';
+	// uint8_t duration to string conversion:
+	message[9] = detectDurationSecs / 100U;
+	detectDurationSecs -= (message[7] * 100U);
+	message[10] = detectDurationSecs / 10U;
+	detectDurationSecs -= (message[8] * 10U);
+	message[11] = detectDurationSecs;
+	
 	message[5] += '0';
 	message[6] += '0';
 	message[7] += '0';
 	message[8] += '0';
 	message[9] += '0';
+	message[10] += '0';
+	message[11] += '0';
 	
 	COMMS_Send(message);
 	SM_Event(smIndex, SEND_COMPLETE);
+}
+
+void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+{
+	(void)old; (void)new; (void)e;
+	pNextTick = &idleTick;
 }
 
 ISR(IR_OUTFLOW_VECTOR)
