@@ -15,12 +15,13 @@
  * Defines and typedefs
  */
  
-#define DETECTION_THRESHOLD_COUNTS (100)
-
+#define DETECTION_THRESHOLD_MS (1000U)
+#define DETECTION_DELAY_BEFORE_STOPPED_MS (10000U)
 /* 
  * Private Variables
  */
-static uint32_t totalIRCount[2] = {0U, 0U};
+static uint32_t totalIRTimeMs[2] = {0U, 0U};
+static int16_t	countFinishedTimeoutMs[2] = {0U, 0U};
 
 /*
  * Public Function Defintions
@@ -28,30 +29,33 @@ static uint32_t totalIRCount[2] = {0U, 0U};
 
 void IR_Reset(IR_SENSOR eSensor)
 {
-	totalIRCount[eSensor] = 0U;
+	totalIRTimeMs[eSensor] = 0U;
+	countFinishedTimeoutMs[eSensor] = 0U;
 }
 
-bool IR_UpdateCount(IR_SENSOR eSensor, uint16_t newCount)
+bool IR_UpdateCount(IR_SENSOR eSensor, uint16_t timeMs, bool detect)
 {
-	bool countHasStopped = (newCount == 0);
-	
-	if (!countHasStopped)
+	totalIRTimeMs[eSensor] += timeMs;
+
+	if (detect)
 	{
-		// Something was detected
-		totalIRCount[eSensor] += newCount;
+		countFinishedTimeoutMs[eSensor] = DETECTION_DELAY_BEFORE_STOPPED_MS;
 	}
-	return countHasStopped;
+	else
+	{
+		countFinishedTimeoutMs[eSensor] -= timeMs;
+	}
+
+	return (countFinishedTimeoutMs[eSensor] <= 0);
 }
 
 bool IR_SensorHasTriggered(IR_SENSOR eSensor)
 {
-	return (totalIRCount[eSensor] > DETECTION_THRESHOLD_COUNTS);
+	return (totalIRTimeMs[eSensor] > DETECTION_THRESHOLD_MS);
 }
 
-uint16_t IR_GetOutflowSenseDurationMs(void)
+uint32_t IR_GetOutflowSenseDurationMs(void)
 {
-	/* Because the IR frequency is 1kHz, the detection duration
-	in milliseconds is just equal to the number of counts */
-	return totalIRCount[IR_OUTFLOW];
+	return totalIRTimeMs[IR_OUTFLOW] - DETECTION_DELAY_BEFORE_STOPPED_MS;
 }
 

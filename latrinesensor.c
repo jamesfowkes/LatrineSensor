@@ -58,6 +58,8 @@
 #define ACTIVE_WDT_TIME_MS		(15)
 #define ACTIVE_WDT_TIME_SELECT	(WDTO_15MS)
 
+#define TIME_BETWEEN_IR_PULSES_MS	(19)
+
 #define SHORT_IR_DELAY_US			(200)
 
 #define IR_OUTFLOW_VECTOR			PCINT1_vect // TODO: Set correct vector
@@ -230,8 +232,8 @@ void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	switch(elevelTestMode)
 	{
 	case LVL_MODE_IR:
-		PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
-		IR_Reset(IR_LEVEL);
+		//PCINT_EnableInterrupt(IR_OUTFLOW_PCINT_NUMBER, false);
+		//IR_Reset(IR_LEVEL);
 		break;
 	case LVL_MODE_SW:
 		// TODO: read level sense switch and send event
@@ -247,7 +249,7 @@ void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 
 static void testForDetection(void)
 {
-	bool countingStopped = IR_UpdateCount(IR_OUTFLOW, irTriggered ? 100 : 0);
+	bool countingStopped = IR_UpdateCount(IR_OUTFLOW, TIME_BETWEEN_IR_PULSES_MS, irTriggered);
 	irTriggered = false;
 	
 	if (countingStopped)
@@ -296,9 +298,9 @@ void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	
 	// uint8_t duration to string conversion:
 	message[9] = detectDurationSecs / 100U;
-	detectDurationSecs -= (message[7] * 100U);
+	detectDurationSecs -= (message[9] * 100U);
 	message[10] = detectDurationSecs / 10U;
-	detectDurationSecs -= (message[8] * 10U);
+	detectDurationSecs -= (message[10] * 10U);
 	message[11] = detectDurationSecs;
 	
 	message[5] += '0';
@@ -317,6 +319,11 @@ void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	pNextTick = &idleTick;
+}
+
+void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+{
+	(void)old; (void)new; (void)e;
 }
 
 ISR(IR_OUTFLOW_VECTOR)

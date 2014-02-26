@@ -17,8 +17,8 @@ typedef enum ir_sensor IR_SENSOR;
  */
  
 void IR_Reset(IR_SENSOR eSensor);
-bool IR_UpdateCount(IR_SENSOR eSensor, uint16_t newCount);
+bool IR_UpdateCount(IR_SENSOR eSensor, uint16_t newCount, bool detect);
 bool IR_SensorHasTriggered(IR_SENSOR eSensor);
-uint16_t IR_GetOutflowSenseDurationMs(void);
+uint32_t IR_GetOutflowSenseDurationMs(void);
 
 #endif
