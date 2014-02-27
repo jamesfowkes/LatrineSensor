@@ -14,7 +14,6 @@
 #include <avr/sleep.h>
 #include <avr/interrupt.h>
 #include <avr/eeprom.h>
-#include <util/delay.h>
 
 /*
  * AVR Library Includes
@@ -23,6 +22,7 @@
 #include "lib_io.h"
 #include "lib_wdt.h"
 #include "lib_sleep.h"
+#include "lib_delay.h"
 #include "lib_pcint.h"
 
 #include "lib_clk.h"
@@ -157,7 +157,7 @@ int main(void)
 			
 			// Briefly turn IR LED on, then off. 
 			IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
-			_delay_us(SHORT_IR_DELAY_US);
+			DELAY_US(SHORT_IR_DELAY_US);
 			IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
 			
 			TEST_LED_OFF;
