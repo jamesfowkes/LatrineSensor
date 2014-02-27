@@ -20,7 +20,9 @@
 #include "latrinesensor.h"
 #include "app_statemachine.h"
 
-void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+#ifdef TEST_HARNESS
+static void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+#endif
 
 static const SM_STATE stateIdle = {IDLE, NULL, onIdleState};
 static const SM_STATE stateCounting = {COUNTING, NULL, onStateChange};

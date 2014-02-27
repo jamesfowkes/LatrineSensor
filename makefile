@@ -6,7 +6,7 @@ RM = rm -f
 CAT = cat
 
 MCU_TARGET=attiny84
-LIBS_DIR = C:/Users/james/Documents/GitHub/Libs
+LIBS_DIR = C:/Users/fowkes_james/Documents/GitHub/Libs
 
 OPT_LEVEL=s
 
@@ -17,7 +17,8 @@ INCLUDE_DIRS = \
 	-I$(LIBS_DIR)/Devices \
 	-I$(LIBS_DIR)/Generics \
 	-I$(LIBS_DIR)/Protocols \
-	-I$(LIBS_DIR)/Utility
+	-I$(LIBS_DIR)/Utility \
+	-I$(LIBS_DIR)/Utility/libfixmath/libfixmath
 
 CFILES = \
 	latrinesensor.c \
@@ -33,6 +34,9 @@ CFILES = \
 	$(LIBS_DIR)/AVR/lib_adc.c \
 	$(LIBS_DIR)/AVR/lib_pcint.c \
 	$(LIBS_DIR)/Protocols/llap.c \
+	$(LIBS_DIR)/Devices/lib_thermistor.c \
+	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16.c \
+	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16_exp.c \
 	$(LIBS_DIR)/Generics/memorypool.c \
 	$(LIBS_DIR)/Generics/ringbuf.c \
 	$(LIBS_DIR)/Generics/statemachinemanager.c \
@@ -48,6 +52,9 @@ OPTS = \
 	-DSUPPRESS_PCINT3 \
 	-DMEMORY_POOL_BYTES=128 \
 	-DTX_BUFFER_SIZE=15 \
+	-DFIXMATH_NO_OVERFLOW \
+	-DFIXMATH_OPTIMIZE_8BIT \
+	-DFIXMATH_NO_CACHE \
 	-ffunction-sections \
 	-std=c99
 	

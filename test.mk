@@ -11,7 +11,8 @@ INCLUDE_DIRS = \
 	-I$(LIBS_DIR)/Devices \
 	-I$(LIBS_DIR)/Generics \
 	-I$(LIBS_DIR)/Protocols \
-	-I$(LIBS_DIR)/Utility
+	-I$(LIBS_DIR)/Utility \
+	-I$(LIBS_DIR)/Utility/libfixmath/libfixmath
 
 CFILES = \
 	app_test_harness.c \
@@ -26,12 +27,15 @@ CFILES = \
 	$(LIBS_DIR)/AVR/lib_wdt.c \
 	$(LIBS_DIR)/AVR/lib_adc.c \
 	$(LIBS_DIR)/AVR/lib_pcint.c \
+	$(LIBS_DIR)/Devices/lib_thermistor.c \
 	$(LIBS_DIR)/Protocols/llap.c \
 	$(LIBS_DIR)/Generics/Harness/memorypool_harness.c \
 	$(LIBS_DIR)/Generics/ringbuf.c \
 	$(LIBS_DIR)/Generics/statemachinemanager.c \
-	$(LIBS_DIR)/Generics/statemachine.c
-
+	$(LIBS_DIR)/Generics/statemachine.c \
+	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16.c \
+	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16_exp.c
+	
 ifdef UART_OPTION
 CFILES += $(LIBS_DIR)/AVR/lib_$(UART_OPTION).c
 

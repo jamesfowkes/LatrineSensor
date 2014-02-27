@@ -5,7 +5,7 @@
  * Defines and typedefs
  */
 
-typedef uint16_t TENTHSDEGC;
+typedef int16_t TENTHSDEGC;
 
 enum temperature_sensor
 {
@@ -30,6 +30,6 @@ bool TS_IsTimeForOutflowRead(void);
 bool TS_ConversionStarted(void);
 
 void TS_StartConversion(TEMPERATURE_SENSOR eSensor);
-uint16_t TS_GetTemperature(TEMPERATURE_SENSOR eSensor);
+TENTHSDEGC TS_GetTemperature(TEMPERATURE_SENSOR eSensor);
 
 #endif

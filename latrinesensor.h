@@ -12,4 +12,8 @@ void startWakeTimer(SM_STATEID old, SM_STATEID new, SM_EVENT e);
 
 void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e);
 
+#ifndef TEST_HARNESS
+void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+#endif
+
 #endif

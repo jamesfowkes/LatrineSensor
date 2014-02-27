@@ -6,6 +6,12 @@
 #include <stdint.h>
 
 /*
+ * Utility Library Includes
+ */
+ 
+#include "fix16.h"
+
+/*
  * Local Application Includes
  */
 
@@ -18,11 +24,22 @@
 #include "lib_adc.h"
 
 /*
+ * Device Library Includes
+ */
+ 
+#include "lib_thermistor.h"
+
+/*
  * Defines and typedefs
  */
  
 #define AMBIENT_ADC_TICK_SECS		(600)
 #define OUTFLOW_ADC_TICK_MS			(1000)
+
+#define RTHERM						(10000UL)
+#define RPULLDOWN					(10000UL)
+
+#define	THERMISTOR_BETA				(3000U)
 
 /*
  * Private Function Prototypes
@@ -47,6 +64,8 @@ static TENTHSDEGC readings[2] = {0, 0};
 // Ambient countdown is in seconds, the other in milliseconds
 static int16_t countdowns[] = {OUTFLOW_ADC_TICK_MS, AMBIENT_ADC_TICK_SECS};
 
+static THERMISTOR thermistor;
+
 /*
  * Public Function Defintions
  */
@@ -63,6 +82,9 @@ void TS_Setup(void)
 	adc.busy = false;
 	adc.channel = currentSensor;
 	adc.conversionComplete = false;
+	
+	THERMISTOR_Init();
+	(void)THERMISTOR_InitDevice(&thermistor, THERMISTOR_BETA, RTHERM);
 }
 
 void TS_AmbientTimerTick(uint8_t seconds)
@@ -104,7 +126,7 @@ void TS_StartConversion(TEMPERATURE_SENSOR eSensor)
 	}
 }
 
-uint16_t TS_GetTemperature(TEMPERATURE_SENSOR eSensor)
+TENTHSDEGC TS_GetTemperature(TEMPERATURE_SENSOR eSensor)
 {
 	return readings[eSensor];
 }
@@ -120,6 +142,7 @@ bool TS_ConversionStarted(void)
  
 static TENTHSDEGC convertToTenthsOfDegrees(uint16_t reading)
 {
-	//TODO: Convert reading to temperature
-	return (TENTHSDEGC)reading;
+	// Convert the reading into thermistor resistance before conversion
+
+	return (TENTHSDEGC)(10U * (uint16_t)fix16_to_int( THERMISTOR_GetReading(&thermistor, reading) ) );
 }

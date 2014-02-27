@@ -25,11 +25,6 @@
 #else
 #error "UART_OPTION must be specified (swserial or uart)!"
 #endif
-/*
- * Protocol Library Includes
- */
-
-#include "llap.h"
  
 /*
  * Local Application Includes
@@ -47,13 +42,7 @@
  * Private Variables
  */
 
-static LLAP_DEVICE llapDevice;
 static COMMS_TYPE eCommsType;
-
-IN_PMEM(static const char deviceName[]) = "PITSENSOR";
-IN_PMEM(static const char deviceType[]) = "U00000001";
-IN_PMEM(static const char fwVersion[]) = "1.00";
-IN_PMEM(static const char serialNum[]) = "000000";
 
 static char txrxBuffer[13]; // Use same buffer for transmit and receive
 
@@ -69,10 +58,6 @@ static bool s_bSWSerialInterrupt;
 
 static void uartCheck(void);
 
-static void llapGenericHandler(LLAP_GENERIC_MSG_ENUM eMsgType, const char * genericStr, const char * msgBody);
-static void llapApplicationHandler(const char * msgBody);
-static void llapSendRequest(const char * msgBody);
-
 /*
  * Public Function Defintions
  */
@@ -82,20 +67,7 @@ void COMMS_Init(COMMS_TYPE eType)
 	eCommsType = eType;
 	rxIndex = 0;
 	s_bSWSerialInterrupt = false;
-	
-	// Setup the LLAP device
-	llapDevice.id[0] = '-';
-	llapDevice.id[1] = '-';	
-	llapDevice.devName = deviceName;
-	llapDevice.devType = deviceType;
-	llapDevice.fwVer = fwVersion;
-	llapDevice.serNum = serialNum;
-	llapDevice.msgBuffer = txrxBuffer;
-	
-	// Link LLAP object to local handler functions
-	llapDevice.genericMsgHandler = llapGenericHandler;
-	llapDevice.applicationMsgHandler = llapApplicationHandler;
-	llapDevice.sendRequest = llapSendRequest;
+
 	
 	switch (eCommsType)
 	{
@@ -112,7 +84,22 @@ void COMMS_Init(COMMS_TYPE eType)
 		break;
 	}
 	
+	// Setup the LLAP device
+	#ifdef USE_LLAP
+	llapDevice.id[0] = '-';
+	llapDevice.id[1] = '-';	
+	llapDevice.devName = deviceName;
+	llapDevice.devType = deviceType;
+	llapDevice.fwVer = fwVersion;
+	llapDevice.serNum = serialNum;
+	llapDevice.msgBuffer = txrxBuffer;
+	
+	// Link LLAP object to local handler functions
+	llapDevice.genericMsgHandler = llapGenericHandler;
+	llapDevice.applicationMsgHandler = llapApplicationHandler;
+	llapDevice.sendRequest = llapSendRequest;
 	LLAP_StartDevice(&llapDevice);
+	#endif
 }
 
 void COMMS_Send(char * s)
@@ -138,6 +125,7 @@ static void uartCheck(void)
 {
 	bool rx = false;
 	
+	#if 0
 	#if defined(UART)
 	bool tx = false;
 	UART0_Task(&rx, &tx);
@@ -159,8 +147,10 @@ static void uartCheck(void)
 			rxIndex = 0;
 		}
 	}
+	#endif
 }
 
+#ifdef USE_LLAP
 static void llapGenericHandler(LLAP_GENERIC_MSG_ENUM eMsgType, const char * genericStr, const char * msgBody)
 {
 	(void)eMsgType;
@@ -189,3 +179,4 @@ static void llapSendRequest(const char * msgBody)
 		break;
 	}
 }
+#endif

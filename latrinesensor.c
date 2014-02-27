@@ -98,6 +98,8 @@ static void setupIO(void);
 static void testForDetection(void);
 static void sleepUntilInterrupt(void);
 
+static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor);
+
 /*
  * Main state machine pointers
  */
@@ -129,7 +131,7 @@ int main(void)
 	setupIO();
 	setupTimers();
 	
-	//TS_Setup();
+	TS_Setup();
 	IR_Reset(IR_OUTFLOW);
 	IR_Reset(IR_LEVEL);
 	
@@ -141,18 +143,18 @@ int main(void)
 	{
 		DO_TEST_HARNESS_RUNNING();
 
-		//TS_Check();
+		TS_Check();
 		
 		if (WDT_TestAndClear(&idleTick))
 		{
 			// Kicks the application out of idle
-			//TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
+			TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
 			SM_Event(smIndex, TIMER);
 		}
 		
 		if (WDT_TestAndClear(&activeTick))
 		{
-			//TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
+			TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
 			TEST_LED_ON;
 			
 			// Briefly turn IR LED on, then off. 
@@ -171,17 +173,15 @@ int main(void)
 			SM_Event(smIndex, TIMER);		
 		}
 		
-		/*if ( TS_IsTimeForOutflowRead() )
+		if ( TS_IsTimeForOutflowRead() )
 		{
 			TS_StartConversion(SENSOR_OUTFLOW);
 		}
 		else if ( TS_IsTimeForAmbientRead() )
 		{
 			TS_StartConversion(SENSOR_AMBIENT);
-		}*/
+		}
 
-		// TODO: Receive comms check
-		
 		sleepUntilInterrupt();
 	}
 }
@@ -192,11 +192,11 @@ static void sleepUntilInterrupt(void)
 	Depends on which state application is in 
 	and if ADC is converting */
 	
-	/*if ( TS_ConversionStarted() )
+	if ( TS_ConversionStarted() )
 	{
 		SLEEP_Sleep(SLEEP_MODE_ADC, false);
 	}
-	else*/
+	else
 	{
 		// Sleep for long idle tick, turn off everything except the watchdog timer
 		WDT_Sleep(pNextTick, SLEEP_MODE_PWR_SAVE, true);
@@ -288,13 +288,8 @@ void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	
 	char message[] =	"aAAFEOOAADDD";
 
-	// temperature to string conversion (outflow):
-	message[5] = 0; //TODO 
-	message[6] = 0; //TODO 
-	
-	// temperature to string conversion (ambient):
-	message[7] = 0; //TODO 
-	message[8] = 0; //TODO 
+	writeTemperatureToMessage(&message[5], SENSOR_OUTFLOW);
+	writeTemperatureToMessage(&message[7], SENSOR_AMBIENT);
 	
 	// uint8_t duration to string conversion:
 	message[9] = detectDurationSecs / 100U;
@@ -303,16 +298,38 @@ void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	detectDurationSecs -= (message[10] * 10U);
 	message[11] = detectDurationSecs;
 	
-	message[5] += '0';
-	message[6] += '0';
-	message[7] += '0';
-	message[8] += '0';
 	message[9] += '0';
 	message[10] += '0';
 	message[11] += '0';
 	
 	COMMS_Send(message);
 	SM_Event(smIndex, SEND_COMPLETE);
+}
+
+static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor)
+{
+	TENTHSDEGC temp = TS_GetTemperature(eSensor);
+	temp = (temp + 5) / 10; // Only care about integer degrees
+	
+	if (temp < 100 && temp > 0)
+	{
+		msg[0] = temp / 10;
+		temp -= (msg[0] * 10);
+		msg[1] = temp;
+		
+		msg[0] += '0';
+		msg[1] += '0';
+	}
+	else if (temp >= 100)
+	{
+		msg[0] = '?';
+		msg[1] = '?';
+	}
+	else if (temp < 0)
+	{
+		msg[0] = '<';
+		msg[1] = '0';
+	}
 }
 
 void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e)
