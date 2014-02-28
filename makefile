@@ -18,7 +18,6 @@ INCLUDE_DIRS = \
 	-I$(LIBS_DIR)/Generics \
 	-I$(LIBS_DIR)/Protocols \
 	-I$(LIBS_DIR)/Utility \
-	-I$(LIBS_DIR)/Utility/libfixmath/libfixmath
 
 CFILES = \
 	latrinesensor.c \
@@ -35,8 +34,6 @@ CFILES = \
 	$(LIBS_DIR)/AVR/lib_pcint.c \
 	$(LIBS_DIR)/Protocols/llap.c \
 	$(LIBS_DIR)/Devices/lib_thermistor.c \
-	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16.c \
-	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16_exp.c \
 	$(LIBS_DIR)/Generics/memorypool.c \
 	$(LIBS_DIR)/Generics/ringbuf.c \
 	$(LIBS_DIR)/Generics/statemachinemanager.c \
@@ -52,9 +49,6 @@ OPTS = \
 	-DSUPPRESS_PCINT3 \
 	-DMEMORY_POOL_BYTES=128 \
 	-DTX_BUFFER_SIZE=15 \
-	-DFIXMATH_NO_OVERFLOW \
-	-DFIXMATH_OPTIMIZE_8BIT \
-	-DFIXMATH_NO_CACHE \
 	-ffunction-sections \
 	-std=c99
 	
@@ -74,6 +68,16 @@ endif
 LDFLAGS = \
 	-Wl,-Map=$(MAPFILE),-gc-sections
 
+ifeq ($(USE_FIX16), 0)
+	LD_SUFFIX = -lm
+endif
+
+ifeq ($(USE_FIX16), 1)
+	OPTS += -DFIXMATH_OPTIMIZE_8BIT -DFIXMATH_NO_CACHE -DUSE_FIX16
+	INCLUDE_DIRS += -I$(LIBS_DIR)/Utility/libfixmath/libfixmath
+	CFILES += $(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16.c $(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16_exp.c
+endif
+
 OBJDEPS=$(CFILES:.c=.o)
 
 MAPFILE = $(NAME).map
@@ -82,7 +86,7 @@ all: $(NAME).elf
 
 	
 $(NAME).elf: $(OBJDEPS)
-	$(CC) $(INCLUDE_DIRS) $(OPTS) $(LDFLAGS) -O$(OPT_LEVEL) -mmcu=$(MCU_TARGET) -o $@ $^
+	$(CC) $(INCLUDE_DIRS) $(OPTS) $(LDFLAGS) -O$(OPT_LEVEL) -mmcu=$(MCU_TARGET) -o $@ $^ $(LD_SUFFIX)
 
 %.o:%.c
 	$(CC) $(INCLUDE_DIRS) $(OPTS) -O$(OPT_LEVEL) -mmcu=$(MCU_TARGET) -c $< -o $@

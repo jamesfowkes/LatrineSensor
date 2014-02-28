@@ -8,8 +8,8 @@
 /*
  * Utility Library Includes
  */
- 
-#include "fix16.h"
+
+#include "util_fixedpoint.h"
 
 /*
  * Local Application Includes
@@ -144,5 +144,5 @@ static TENTHSDEGC convertToTenthsOfDegrees(uint16_t reading)
 {
 	// Convert the reading into thermistor resistance before conversion
 
-	return (TENTHSDEGC)(10U * (uint16_t)fix16_to_int( THERMISTOR_GetReading(&thermistor, reading) ) );
+	return (TENTHSDEGC)(10U * (uint16_t)fp_to_int( THERMISTOR_GetReading(&thermistor, reading) ) );
 }
