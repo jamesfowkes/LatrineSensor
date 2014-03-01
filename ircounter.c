@@ -36,6 +36,7 @@ void IR_Reset(IR_SENSOR eSensor)
 
 bool IR_UpdateCount(IR_SENSOR eSensor, uint16_t timeMs, bool detect)
 {
+	
 	if (detect)
 	{
 		countFinishedTimeoutMs[eSensor] = DETECTION_DELAY_BEFORE_STOPPED_MS;
@@ -56,6 +57,6 @@ bool IR_SensorHasTriggered(IR_SENSOR eSensor)
 
 uint32_t IR_GetOutflowSenseDurationMs(void)
 {
-	return totalIRTimeMs[IR_OUTFLOW] - DETECTION_DELAY_BEFORE_STOPPED_MS;
+	return totalIRTimeMs[IR_OUTFLOW];
 }
 
