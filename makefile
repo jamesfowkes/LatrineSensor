@@ -6,7 +6,7 @@ RM = rm -f
 CAT = cat
 
 MCU_TARGET=attiny84
-LIBS_DIR = C:/Users/fowkes_james/Documents/GitHub/Libs
+LIBS_DIR = C:/Users/James/Documents/GitHub/Libs
 
 OPT_LEVEL=s
 

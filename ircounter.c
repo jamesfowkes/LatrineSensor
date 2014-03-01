@@ -17,6 +17,7 @@
  
 #define DETECTION_THRESHOLD_MS (1000U)
 #define DETECTION_DELAY_BEFORE_STOPPED_MS (10000U)
+
 /* 
  * Private Variables
  */
@@ -35,11 +36,10 @@ void IR_Reset(IR_SENSOR eSensor)
 
 bool IR_UpdateCount(IR_SENSOR eSensor, uint16_t timeMs, bool detect)
 {
-	totalIRTimeMs[eSensor] += timeMs;
-
 	if (detect)
 	{
 		countFinishedTimeoutMs[eSensor] = DETECTION_DELAY_BEFORE_STOPPED_MS;
+		totalIRTimeMs[eSensor] += timeMs;
 	}
 	else
 	{

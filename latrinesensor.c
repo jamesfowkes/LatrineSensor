@@ -62,8 +62,8 @@
 
 #define SHORT_IR_DELAY_US			(200)
 
-#define IR_OUTFLOW_VECTOR			PCINT1_vect // TODO: Set correct vector
-#define IR_OUTFLOW_PCINT_NUMBER		10			// TODO: Set correct number
+#define IR_OUTFLOW_VECTOR			PCINT1_vect
+#define IR_OUTFLOW_PCINT_NUMBER		10
 
 #define eIR_OUTFLOW_LED_PORT		IO_PORTB
 #define IR_OUTFLOW_LED_PORT			PORTB
@@ -156,12 +156,10 @@ int main(void)
 		{
 			TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
 			TEST_LED_ON;
-			
 			// Briefly turn IR LED on, then off. 
 			IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
 			DELAY_US(SHORT_IR_DELAY_US);
 			IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
-			
 			TEST_LED_OFF;
 			
 			// Check if the pulse was registered
@@ -286,8 +284,8 @@ void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	
 	uint8_t detectDurationSecs = (IR_GetOutflowSenseDurationMs() + 500U) / 1000U;
 	
-	char message[] =	"aAAFEOOAADDD";
-
+	char message[] = "aAAFEOOAADDD";
+	
 	writeTemperatureToMessage(&message[5], SENSOR_OUTFLOW);
 	writeTemperatureToMessage(&message[7], SENSOR_AMBIENT);
 	
@@ -309,23 +307,27 @@ void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor)
 {
 	TENTHSDEGC temp = TS_GetTemperature(eSensor);
-	temp = (temp + 5) / 10; // Only care about integer degrees
 	
-	if (temp < 100 && temp > 0)
+	if (temp > 0)
 	{
-		msg[0] = temp / 10;
-		temp -= (msg[0] * 10);
-		msg[1] = temp;
+		temp = (temp + 5) / 10; // Only care about integer degrees
 		
-		msg[0] += '0';
-		msg[1] += '0';
+		if (temp < 100 && temp > 0)
+		{
+			msg[0] = temp / 10;
+			temp -= (msg[0] * 10);
+			msg[1] = temp;
+			
+			msg[0] += '0';
+			msg[1] += '0';
+		}
+		else if (temp >= 100)
+		{
+			msg[0] = '?';
+			msg[1] = '?';
+		}
 	}
-	else if (temp >= 100)
-	{
-		msg[0] = '?';
-		msg[1] = '?';
-	}
-	else if (temp < 0)
+	else
 	{
 		msg[0] = '<';
 		msg[1] = '0';

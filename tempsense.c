@@ -33,13 +33,13 @@
  * Defines and typedefs
  */
  
-#define AMBIENT_ADC_TICK_SECS		(600)
+#define AMBIENT_ADC_TICK_SECS		(5)
 #define OUTFLOW_ADC_TICK_MS			(1000)
 
 #define RTHERM						(10000UL)
-#define RPULLDOWN					(10000UL)
+#define RPULLUP						(10000UL)
 
-#define	THERMISTOR_BETA				(3000U)
+#define	THERMISTOR_BETA				(4100U)
 
 /*
  * Private Function Prototypes
@@ -55,16 +55,17 @@ static ADC_CONTROL_ENUM adc;
 static TEMPERATURE_SENSOR currentSensor;
 
 static LIB_ADC_CHANNEL_ENUM channels[2] = {
-	LIB_ADC_CH_0, //SENSOR_OUTFLOW
-	LIB_ADC_CH_1, //SENSOR_AMBIENT
+	LIB_ADC_CH_2, //SENSOR_OUTFLOW
+	LIB_ADC_CH_3, //SENSOR_AMBIENT
 };
 
 static TENTHSDEGC readings[2] = {0, 0};
 
 // Ambient countdown is in seconds, the other in milliseconds
-static int16_t countdowns[] = {OUTFLOW_ADC_TICK_MS, AMBIENT_ADC_TICK_SECS};
+static int16_t countdowns[] = {OUTFLOW_ADC_TICK_MS, 0};
 
 static THERMISTOR thermistor;
+static THERMISTOR_DIVIDER_READING divider;
 
 /*
  * Public Function Defintions
@@ -80,11 +81,12 @@ void TS_Setup(void)
 	currentSensor = SENSOR_OUTFLOW;
 	
 	adc.busy = false;
-	adc.channel = currentSensor;
+	adc.channel = channels[currentSensor];
 	adc.conversionComplete = false;
 	
 	THERMISTOR_Init();
 	(void)THERMISTOR_InitDevice(&thermistor, THERMISTOR_BETA, RTHERM);
+	(void)THERMISTOR_InitDivider(&divider, 1023, RPULLUP, PULLUP);
 }
 
 void TS_AmbientTimerTick(uint8_t seconds)
@@ -121,6 +123,7 @@ void TS_StartConversion(TEMPERATURE_SENSOR eSensor)
 {
 	if (!adc.busy)
 	{
+		currentSensor = eSensor;
 		adc.channel = channels[eSensor];
 		ADC_GetReading(&adc);
 	}
@@ -137,12 +140,13 @@ bool TS_ConversionStarted(void)
 }
 
 /*
- * Private Function Defintions
+ * Private Function Definitions
  */
  
 static TENTHSDEGC convertToTenthsOfDegrees(uint16_t reading)
 {
 	// Convert the reading into thermistor resistance before conversion
-
-	return (TENTHSDEGC)(10U * (uint16_t)fp_to_int( THERMISTOR_GetReading(&thermistor, reading) ) );
+	FIXED_POINT_TYPE temp = THERMISTOR_GetDividerReading(&thermistor, &divider, reading);
+	temp = fp_mul(temp, fp_from_int(10));
+	return (TENTHSDEGC)fp_to_int( temp );
 }
