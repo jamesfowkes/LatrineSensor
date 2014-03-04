@@ -75,11 +75,14 @@
 #define IR_LEVEL_LED_PORT			PORTB
 #define IR_LEVEL_LED_PIN			1
 
+#define SETUP_PINS					PINB
+#define	SETUP_PIN1					3
+
 #define TEST_LED_ON					IO_On(IR_LEVEL_LED_PORT, IR_LEVEL_LED_PIN)
 #define TEST_LED_OFF				IO_Off(IR_LEVEL_LED_PORT, IR_LEVEL_LED_PIN)
 #define	TEST_LED_TOGGLE				IO_Toggle(IR_LEVEL_LED_PINS, IR_LEVEL_LED_PIN)
 
-#define TEST_TOGGLE(x) 				for (uint8_t i=0; i < x; ++i) { TEST_LED_TOGGLE; }
+#define TEST_TOGGLE(x) 				for (uint8_t toggle_count=0; toggle_count < x; ++toggle_count) { TEST_LED_TOGGLE; }
 
 enum level_test_mode_enum
 {
@@ -99,6 +102,9 @@ static void testForDetection(void);
 static void sleepUntilInterrupt(void);
 
 static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor);
+
+static void runNormalApplication(void);
+static void runTestApplication(void);
 
 /*
  * Main state machine pointers
@@ -120,67 +126,106 @@ static WDT_SLEEP_TICK * pNextTick;
 
 static bool irTriggered;
 
+static bool inTestMode = false;
+
 int main(void)
 {
 	DO_TEST_HARNESS_SETUP();
 	
 	WD_DISABLE();
 	
-	smIndex = APPSM_SetupStateMachine();
-
 	setupIO();
-	setupTimers();
 	
-	TS_Setup();
-	IR_Reset(IR_OUTFLOW);
-	IR_Reset(IR_LEVEL);
+	inTestMode = (IO_Read(SETUP_PINS, SETUP_PIN1) == false);
 	
-	COMMS_Init(CT_UART);
+	if(!inTestMode)
+	{
+		setupTimers();
 		
-	sei();
+		smIndex = APPSM_SetupStateMachine();
+		
+		TS_Setup();
+		IR_Reset(IR_OUTFLOW);
+		IR_Reset(IR_LEVEL);
+		
+		COMMS_Init(CT_UART);
+			
+		sei();
+	}
 	
+	if (!inTestMode)
+	{
+		runNormalApplication();
+	}
+	else
+	{
+		runTestApplication();
+	}
+}	
+	
+static void runNormalApplication(void)
+{
 	while (true)
 	{
-		DO_TEST_HARNESS_RUNNING();
+		
+		{
+			DO_TEST_HARNESS_RUNNING();
 
-		TS_Check();
-		
-		if (WDT_TestAndClear(&idleTick))
-		{
-			// Kicks the application out of idle
-			TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
-			SM_Event(smIndex, TIMER);
-		}
-		
-		if (WDT_TestAndClear(&activeTick))
-		{
-			TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
-			TEST_LED_ON;
-			// Briefly turn IR LED on, then off. 
-			IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
-			DELAY_US(SHORT_IR_DELAY_US);
-			IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
-			TEST_LED_OFF;
+			TS_Check();
 			
-			// Check if the pulse was registered
-			testForDetection();
-		}
+			if (WDT_TestAndClear(&idleTick))
+			{
+				// Kicks the application out of idle
+				TS_AmbientTimerTick(IDLE_WDT_TIME_SECS);
+				SM_Event(smIndex, TIMER);
+			}
+			
+			if (WDT_TestAndClear(&activeTick))
+			{
+				TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
+				TEST_LED_ON;
+				// Briefly turn IR LED on, then off. 
+				IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
+				DELAY_US(SHORT_IR_DELAY_US);
+				IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
+				TEST_LED_OFF;
+				
+				// Check if the pulse was registered
+				testForDetection();
+			}
 
-		if (WDT_TestAndClear(&commsTick))
-		{
-			SM_Event(smIndex, TIMER);		
-		}
-		
-		if ( TS_IsTimeForOutflowRead() )
-		{
-			TS_StartConversion(SENSOR_OUTFLOW);
-		}
-		else if ( TS_IsTimeForAmbientRead() )
-		{
-			TS_StartConversion(SENSOR_AMBIENT);
-		}
+			if (WDT_TestAndClear(&commsTick))
+			{
+				SM_Event(smIndex, TIMER);		
+			}
+			
+			if ( TS_IsTimeForOutflowRead() )
+			{
+				TS_StartConversion(SENSOR_OUTFLOW);
+			}
+			else if ( TS_IsTimeForAmbientRead() )
+			{
+				TS_StartConversion(SENSOR_AMBIENT);
+			}
 
-		sleepUntilInterrupt();
+			sleepUntilInterrupt();
+		}
+	}
+}
+
+static void runTestApplication(void)
+{
+	while (true)
+	{
+		// Test mode: reflect state of  IR outflow input pin
+		if (IO_Read(PINB, 2))
+		{
+			TEST_LED_ON;
+		}
+		else
+		{
+			TEST_LED_OFF;
+		}
 	}
 }
 
