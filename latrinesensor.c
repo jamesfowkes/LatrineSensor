@@ -151,10 +151,7 @@ int main(void)
 		COMMS_Init(CT_UART);
 			
 		sei();
-	}
-	
-	if (!inTestMode)
-	{
+		
 		runNormalApplication();
 	}
 	else
@@ -167,7 +164,6 @@ static void runNormalApplication(void)
 {
 	while (true)
 	{
-		
 		{
 			DO_TEST_HARNESS_RUNNING();
 
