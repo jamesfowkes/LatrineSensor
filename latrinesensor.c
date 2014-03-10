@@ -356,7 +356,7 @@ static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor)
 	{
 		temp = (temp + 5) / 10; // Only care about integer degrees
 		
-		if (temp < 100 && temp > 0)
+		if ((temp < 100) && (temp > 0))
 		{
 			msg[0] = temp / 10;
 			temp -= (msg[0] * 10);
