@@ -33,13 +33,13 @@ static const SM_STATE stateLevelTest = {LEVEL_TEST, NULL, onStateChange};
 
 static const SM_ENTRY sm[] = {
 	{&stateIdle,		TIMER,			startCounting,	&stateCounting	},
-	{&stateIdle,		TEST_LEVEL,		startLevelTest,	&stateLevelTest	},
+	//{&stateIdle,		TEST_LEVEL,		startLevelTest,	&stateLevelTest	},
 		
 	{&stateCounting,	NO_DETECT,		NULL,			&stateIdle		},
 	{&stateCounting,	DETECT,			wakeMaster,		&stateSending1	},
 	
-	{&stateLevelTest,	PIT_NOT_FULL,	NULL,			&stateIdle		},
-	{&stateLevelTest,	PIT_FULL,		wakeMaster,		&stateSending1	},
+	//{&stateLevelTest,	PIT_NOT_FULL,	NULL,			&stateIdle		},
+	//{&stateLevelTest,	PIT_FULL,		wakeMaster,		&stateSending1	},
 	
 	{&stateSending1,	SEND_COMPLETE,	startWakeTimer,	&stateSending2	},
 	{&stateSending2,	TIMER,			sendData,		&stateSending3	},
