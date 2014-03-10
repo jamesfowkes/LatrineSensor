@@ -58,6 +58,8 @@
 #define ACTIVE_WDT_TIME_MS		(15)
 #define ACTIVE_WDT_TIME_SELECT	(WDTO_15MS)
 
+#define COMMS_WDT_TIME_SELECT	(WDTO_120MS)
+
 #define TIME_BETWEEN_IR_PULSES_MS	(19)
 
 #define SHORT_IR_DELAY_US			(200)
@@ -253,6 +255,7 @@ static void setupTimers(void)
 {
 	idleTick.time = IDLE_WDT_TIME_SELECT;
 	activeTick.time = ACTIVE_WDT_TIME_SELECT;
+	commsTick.time = COMMS_WDT_TIME_SELECT;
 	pNextTick = &idleTick; 
 }
 
