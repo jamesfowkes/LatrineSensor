@@ -77,8 +77,10 @@
 #define IR_LEVEL_LED_PORT			PORTB
 #define IR_LEVEL_LED_PIN			1
 
-#define SETUP_PINS					PINB
-#define	SETUP_PIN1					3
+#define eSETUP_PORT					IO_PORTA
+#define SETUP_PINS					PINA
+#define	SETUP_PIN0					0
+#define	SETUP_PIN1					1
 
 #define TEST_LED_ON					IO_On(IR_LEVEL_LED_PORT, IR_LEVEL_LED_PIN)
 #define TEST_LED_OFF				IO_Off(IR_LEVEL_LED_PORT, IR_LEVEL_LED_PIN)
@@ -86,12 +88,20 @@
 
 #define TEST_TOGGLE(x) 				for (uint8_t toggle_count=0; toggle_count < x; ++toggle_count) { TEST_LED_TOGGLE; }
 
-enum level_test_mode_enum
+/*enum level_test_mode_enum
 {
 	LVL_MODE_IR, // Test for full level is with a IR based system
 	LVL_MODE_SW // Test for full level is with an switch based system
 };
-typedef enum level_test_mode_enum LEVEL_TEST_MODE_ENUM;
+typedef enum level_test_mode_enum LEVEL_TEST_MODE_ENUM;*/
+
+enum test_mode_enum
+{
+	TEST_MODE_NONE,
+	TEST_MODE_IR_SENSE,
+	TEST_MODE_STATE
+};
+typedef enum test_mode_enum TEST_MODE_ENUM;
 
 /*
  * Private Function Prototypes
@@ -106,7 +116,9 @@ static void sleepUntilInterrupt(void);
 static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor);
 
 static void runNormalApplication(void);
-static void runTestApplication(void);
+static void runIRSenseApplication(void);
+
+static void readTestMode(void);
 
 /*
  * Main state machine pointers
@@ -118,7 +130,7 @@ static void runTestApplication(void);
 
 static int8_t smIndex;
 
-static LEVEL_TEST_MODE_ENUM elevelTestMode = LVL_MODE_SW;
+//static LEVEL_TEST_MODE_ENUM elevelTestMode = LVL_MODE_SW;
 
 static WDT_SLEEP_TICK idleTick;
 static WDT_SLEEP_TICK activeTick;
@@ -128,7 +140,7 @@ static WDT_SLEEP_TICK * pNextTick;
 
 static bool irTriggered;
 
-static bool inTestMode = false;
+static TEST_MODE_ENUM testMode;
 
 int main(void)
 {
@@ -137,10 +149,9 @@ int main(void)
 	WD_DISABLE();
 	
 	setupIO();
-	
-	inTestMode = (IO_Read(SETUP_PINS, SETUP_PIN1) == false);
-	
-	if(!inTestMode)
+	readTestMode();
+		
+	if(testMode != TEST_MODE_IR_SENSE)
 	{
 		setupTimers();
 		
@@ -158,7 +169,7 @@ int main(void)
 	}
 	else
 	{
-		runTestApplication();
+		runIRSenseApplication();
 	}
 }	
 	
@@ -181,12 +192,14 @@ static void runNormalApplication(void)
 			if (WDT_TestAndClear(&activeTick))
 			{
 				TS_OutflowTimerTick(ACTIVE_WDT_TIME_MS);
-				TEST_LED_ON;
+				if (testMode == TEST_MODE_NONE) { TEST_LED_ON; }
+				
 				// Briefly turn IR LED on, then off. 
 				IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
 				DELAY_US(SHORT_IR_DELAY_US);
 				IO_Off(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
-				TEST_LED_OFF;
+				
+				if (testMode == TEST_MODE_NONE) { TEST_LED_OFF; }
 				
 				// Check if the pulse was registered
 				testForDetection();
@@ -206,16 +219,29 @@ static void runNormalApplication(void)
 				TS_StartConversion(SENSOR_AMBIENT);
 			}
 
+			if (testMode == TEST_MODE_STATE)
+			{
+				uint8_t state = (uint8_t)SM_GetState(smIndex) + 1;
+				
+				while(state--)
+				{
+					TEST_LED_OFF;
+					TEST_LED_ON;
+					TEST_LED_OFF;
+				}
+			}
+			
 			sleepUntilInterrupt();
 		}
 	}
 }
 
-static void runTestApplication(void)
+static void runIRSenseApplication(void)
 {
+	IO_On(IR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN);
 	while (true)
 	{
-		// Test mode: reflect state of  IR outflow input pin
+		// Test mode: reflect state of IR outflow input pin
 		if (IO_Read(PINB, 2))
 		{
 			TEST_LED_ON;
@@ -249,6 +275,24 @@ static void setupIO(void)
 {
 	IO_SetMode(eIR_LEVEL_LED_PORT, IR_LEVEL_LED_PIN, IO_MODE_OUTPUT);
 	IO_SetMode(eIR_OUTFLOW_LED_PORT, IR_OUTFLOW_LED_PIN, IO_MODE_OUTPUT);
+	
+	IO_SetMode(eSETUP_PORT, SETUP_PIN0, IO_MODE_INPUT);
+	IO_SetMode(eSETUP_PORT, SETUP_PIN1, IO_MODE_INPUT);
+}
+
+static void readTestMode(void)
+{
+	testMode = 0;
+	
+	if (IO_Read(SETUP_PINS, SETUP_PIN0) == false)
+	{
+		testMode += 1;
+	}
+	
+	if (IO_Read(SETUP_PINS, SETUP_PIN1) == false)
+	{
+		testMode += 2;
+	}
 }
 
 static void setupTimers(void)
@@ -267,7 +311,7 @@ void startCounting(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	pNextTick = &activeTick;
 }
 
-void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+/*(void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -281,13 +325,13 @@ void startLevelTest(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 		// TODO: read level sense switch and send event
 		break;
 	}
-}
+}*/
 
-void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+/*void testPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	SM_Event(smIndex, IR_SensorHasTriggered(IR_LEVEL) ?  PIT_FULL : PIT_NOT_FULL);
-}
+}*/
 
 static void testForDetection(void)
 {
@@ -303,11 +347,11 @@ static void testForDetection(void)
 	}
 }
 
-void sendPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+/*void sendPitFull(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	COMMS_Send("PITFULL");
-}
+}*/
 
 void wakeMaster(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
