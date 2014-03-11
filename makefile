@@ -34,6 +34,7 @@ CFILES = \
 	$(LIBS_DIR)/AVR/lib_pcint.c \
 	$(LIBS_DIR)/Protocols/llap.c \
 	$(LIBS_DIR)/Devices/lib_thermistor.c \
+	$(LIBS_DIR)/Devices/lib_pot_divider.c \
 	$(LIBS_DIR)/Generics/memorypool.c \
 	$(LIBS_DIR)/Generics/ringbuf.c \
 	$(LIBS_DIR)/Generics/statemachinemanager.c \
