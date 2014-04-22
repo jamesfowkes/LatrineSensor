@@ -75,8 +75,8 @@ enum events
 typedef enum events EVENTS;
 
 // Make sure these defines are kept in sync or bad things will happen.
-#define IDLE_TIME_MS	(1000)
-#define COMMS_TIME_MS	(120)
+#define IDLE_TICK_MS	(1000)
+#define COMMS_TICK_MS	(120)
 
 #define OUTFLOW_PCINT_VECTOR		PCINT1_vect
 #define OUTFLOW_PCINT_NUMBER		10
@@ -134,10 +134,7 @@ static int8_t setupStateMachine(void);
 
 static int8_t smIndex;
 
-static TMR8_TICK_CONFIG idleTick;
-static TMR8_TICK_CONFIG commsTick;
-
-static TMR8_TICK_CONFIG * pNextTick;
+static TMR8_TICK_CONFIG applicationTick;
 
 static TEST_MODE_ENUM testMode;
 
@@ -177,18 +174,12 @@ static void runNormalApplication(void)
 
 			TS_Check();
 			
-			if (TMR8_Tick_TestAndClear(&idleTick))
+			if (TMR8_Tick_TestAndClear(&applicationTick))
 			{
-				// Test the 
-				TS_AmbientTimerTick(IDLE_TIME_MS/1000);
+				TS_AmbientTimerTick(applicationTick.reload);
 				SM_Event(smIndex, TIMER);
 			}
-			
-			if (TMR8_Tick_TestAndClear(&commsTick))
-			{
-				SM_Event(smIndex, TIMER);		
-			}
-			
+					
 			if ( TS_IsTimeForOutflowRead() )
 			{
 				TS_StartConversion(SENSOR_OUTFLOW);
@@ -239,9 +230,11 @@ static void readTestMode(void)
 
 static void setupTimers(void)
 {
-	idleTick.msTick = IDLE_TIME_MS;
-	commsTick.msTick = COMMS_TIME_MS;
-	pNextTick = &idleTick; 
+	TMR8_Tick_Init(1, 0);
+	
+	applicationTick.msTick = IDLE_TICK_MS;
+	
+	TMR8_Tick_AddTimerConfig(&applicationTick);
 }
 
 void testAndResetCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
@@ -251,7 +244,7 @@ void testAndResetCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	bool isFlushing = Filter_NewValue(s_flushPulseCount);
 	s_flushPulseCount = 0;
 	
-	bool countingStopped = Flush_UpdateCount(IDLE_TIME_MS, isFlushing);
+	bool countingStopped = Flush_UpdateCount(IDLE_TICK_MS, isFlushing);
 	
 	if (countingStopped)
 	{
@@ -271,7 +264,7 @@ void wakeMaster(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 void startWakeTimer(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
-	pNextTick = &commsTick;
+	TMR8_Tick_SetNewReloadValue(&applicationTick, COMMS_TICK_MS);
 }
 
 void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
@@ -342,7 +335,7 @@ static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor)
 void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
-	pNextTick = &idleTick;
+	TMR8_Tick_SetNewReloadValue(&applicationTick, IDLE_TICK_MS);
 }
 
 void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e)
