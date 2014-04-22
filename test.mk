@@ -17,10 +17,10 @@ INCLUDE_DIRS = \
 CFILES = \
 	app_test_harness.c \
 	latrinesensor.c \
-	app_statemachine.c \
 	comms.c \
 	tempsense.c \
-	ircounter.c \
+	flush_counter.c \
+	filter.c \
 	$(LIBS_DIR)/AVR/lib_io.c \
 	$(LIBS_DIR)/AVR/lib_fuses.c \
 	$(LIBS_DIR)/AVR/lib_sleep.c \
@@ -29,12 +29,10 @@ CFILES = \
 	$(LIBS_DIR)/AVR/lib_pcint.c \
 	$(LIBS_DIR)/Devices/lib_thermistor.c \
 	$(LIBS_DIR)/Protocols/llap.c \
-	$(LIBS_DIR)/Generics/Harness/memorypool_harness.c \
+	$(LIBS_DIR)/Generics/memorypool.c \
 	$(LIBS_DIR)/Generics/ringbuf.c \
 	$(LIBS_DIR)/Generics/statemachinemanager.c \
 	$(LIBS_DIR)/Generics/statemachine.c \
-	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16.c \
-	$(LIBS_DIR)/Utility/libfixmath/libfixmath/fix16_exp.c
 	
 ifdef UART_OPTION
 CFILES += $(LIBS_DIR)/AVR/lib_$(UART_OPTION).c

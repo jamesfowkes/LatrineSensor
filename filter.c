@@ -27,57 +27,60 @@
 /*
  * Private Function Prototypes
  */
- 
-static void handleNewValueInFlush(uint16_t newValue);
-static void handleNewValueInIdle(uint16_t newValue);
 
 /* 
  * Private Variables
  */
  
 static uint16_t s_idleAverage = 0UL;
+static uint16_t s_lastThreeAverage = 0UL;
 
-static AVERAGER* s_averager;
+static AVERAGER* s_idleAverager;
+static AVERAGER* s_lastThreeAverager;
 
-static bool s_flushing;
+static bool s_bFlushing;
 
 void Filter_Init(void)
 {
-	s_averager = AVERAGER_GetAverager(U16, N);
+	s_idleAverager = AVERAGER_GetAverager(U16, N);
+	s_lastThreeAverager = AVERAGER_GetAverager(U16, 3);
+	s_bFlushing = false;
 }
 
 bool Filter_NewValue(uint16_t newValue)
 {
-	if (s_flushing)
+
+	AVERAGER_NewData(s_lastThreeAverager, &newValue);
+	AVERAGER_GetAverage(s_lastThreeAverager, &s_lastThreeAverage);
+
+	// Flush has started when average reading has dropped below threshold
+	bool bFlushing = s_lastThreeAverage < (s_idleAverage - THRESHOLD);
+
+	if (s_bFlushing && !bFlushing)
 	{
-		handleNewValueInFlush(newValue);
-	}
-	else
-	{
-		handleNewValueInIdle(newValue);
+		// Stopped flushing, reset the idle averager to the last three readings
+		AVERAGER_Reset(s_idleAverager, &s_lastThreeAverage);
 	}
 	
-	return s_flushing;
-}
-
-/*
- * Private Function Defintions
- */
- 
-static void handleNewValueInFlush(uint16_t newValue)
-{
-	// Flush has finished when reading has returned to half of previous level
-	s_flushing = newValue > (s_idleAverage - (THRESHOLD/2));
-}
-
-static void handleNewValueInIdle(uint16_t newValue)
-{
-	s_flushing = newValue < (s_idleAverage - THRESHOLD);
+	s_bFlushing = bFlushing;
 	
-	if (!s_flushing)
+	if (!bFlushing)
 	{
 		// Not flushing, so make this reading part of the idle average and update
-		AVERAGER_NewData(s_averager, &newValue);
-		AVERAGER_GetAverage(s_averager, &s_idleAverage);
+		AVERAGER_NewData(s_idleAverager, &newValue);
+		AVERAGER_GetAverage(s_idleAverager, &s_idleAverage);
+
 	}
+	
+	return s_bFlushing;
+}
+
+uint16_t Filter_GetIdleAverage(void)
+{
+	return s_idleAverage;
+}
+
+uint16_t Filter_GetLastThreeAverage(void)
+{
+	return s_lastThreeAverage;
 }
