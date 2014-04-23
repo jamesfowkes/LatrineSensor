@@ -26,6 +26,7 @@ CFILES = \
 	comms.c \
 	tempsense.c \
 	flush_counter.c \
+	threshold.c \
 	filter.c \
 	$(LIBS_DIR)/AVR/lib_clk.c \
 	$(LIBS_DIR)/AVR/lib_sleep.c \
@@ -70,17 +71,21 @@ MAPFILE = $(NAME).map
 
 all: $(NAME).elf
 
-	
 $(NAME).elf: $(OBJDEPS)
 	$(CC) $(INCLUDE_DIRS) $(OPTS) $(LDFLAGS) -O$(OPT_LEVEL) -mmcu=$(MCU_TARGET) -o $@ $^ $(LDSUFFIX)
+	@avr-size --format=avr --mcu=$(MCU_TARGET) $(NAME).elf
 
 %.o:%.c
 	$(CC) $(INCLUDE_DIRS) $(OPTS) -O$(OPT_LEVEL) -mmcu=$(MCU_TARGET) -c $< -o $@
 
+upload-eeprom:
+	avr-objcopy -j .eeprom --no-change-warnings --change-section-lma .eeprom=0 -O ihex $(NAME).elf  $(NAME).eep
+	avrdude -p $(AVRDUDE_PART) -c usbtiny -Ueeprom:w:$(NAME).eep:a
+	
 upload:
 	avr-objcopy -R .eeprom -O ihex $(NAME).elf  $(NAME).hex
 	avrdude -p $(AVRDUDE_PART) -c usbtiny -Uflash:w:$(NAME).hex:a
-
+	
 clean:
 	$(RM) $(NAME).elf
 	$(RM) $(NAME).hex
