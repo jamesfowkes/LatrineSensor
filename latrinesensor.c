@@ -43,6 +43,7 @@
 #include "tempsense.h"
 #include "flush_counter.h"
 #include "filter.h"
+#include "threshold.h"
 #include "comms.h"
 
 /*
@@ -154,6 +155,9 @@ int main(void)
 	smIndex = setupStateMachine();
 	
 	TS_Setup();
+	
+	Threshold_Init();
+	
 	Filter_Init();
 	
 	Flush_Reset();

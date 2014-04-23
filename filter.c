@@ -15,6 +15,7 @@
  * Local Application Includes
  */
 
+#include "threshold.h"
 #include "filter.h"
 
 /*
@@ -22,7 +23,6 @@
  */
  
 #define N 10 // Number of samples to average
-#define THRESHOLD 500 // Readings must fall by this amount to be counted as a flush
 
 /*
  * Private Function Prototypes
@@ -54,7 +54,7 @@ bool Filter_NewValue(uint16_t newValue)
 	AVERAGER_GetAverage(s_lastThreeAverager, &s_lastThreeAverage);
 
 	// Flush has started when average reading has dropped below threshold
-	bool bFlushing = s_lastThreeAverage < (s_idleAverage - THRESHOLD);
+	bool bFlushing = s_lastThreeAverage < (s_idleAverage - Threshold_Get());
 
 	if (s_bFlushing && !bFlushing)
 	{
