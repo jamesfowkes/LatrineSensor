@@ -168,7 +168,23 @@ int main(void)
 	
 	runNormalApplication();
 }	
+
+/*
+ * Public Function Definitions
+ */
+ 
+void APP_HandleNewThresholdSetting(const char * msg)
+{
+	uint16_t newThreshold = 0;
 	
+	newThreshold = (uint16_t)atol(msg);
+	
+	if (newThreshold > 0)
+	{
+		Threshold_Set(newThreshold);
+	}
+}
+
 static void runNormalApplication(void)
 {
 	while (true)

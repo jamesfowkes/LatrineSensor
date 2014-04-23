@@ -37,6 +37,12 @@
 
 #include "util_memory_placement.h"
 
+/*
+ * Local Application Includes
+ */
+ 
+#include "latrinesensor.h"
+
 /* 
  * Private Variables
  */
@@ -123,7 +129,10 @@ static void llapGenericHandler(LLAP_GENERIC_MSG_ENUM eMsgType, const char * gene
 
 static void llapApplicationHandler(const char * msgBody)
 {
-	(void)msgBody;
+	if ((msgBody[0] == 'T') && (msgBody[1] == 'H'))
+	{
+		APP_HandleNewThresholdSetting(&msgBody[2]);
+	}
 }
 
 static void llapSendRequest(const char * msgBody)
