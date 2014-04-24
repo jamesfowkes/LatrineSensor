@@ -79,23 +79,29 @@ typedef enum events EVENTS;
 #define IDLE_TICK_MS	(1000)
 #define COMMS_TICK_MS	(120)
 
-#define OUTFLOW_PCINT_VECTOR		PCINT1_vect
-#define OUTFLOW_PCINT_NUMBER		10
+#define OUTFLOW_PCINT_VECTOR		PCINT2_vect
+#define OUTFLOW_PCINT_NUMBER		18
 
-#define eDETECT_CIRCUIT_RESET_PORT	IO_PORTB
-#define DETECT_CIRCUIT_RESET_PORT	PORTB
-#define DETECT_CIRCUIT_RESET_PINS	PINB
-#define DETECT_CIRCUIT_RESET_PIN	0
+#define eOUTFLOW_PORT			IO_PORTD
+#define OUTFLOW_PORT			PORTD
+#define OUTFLOW_PINS			PIND
+#define OUTFLOW_PIN			2
 
-#define eGENERIC_OUTPUT_PORT		IO_PORTB
-#define GENERIC_OUTPUT_PORT			PORTB
-#define GENERIC_OUTPUT_PINS			PINB
-#define GENERIC_OUTPUT_PIN			1
+#define eDETECT_CIRCUIT_RESET_PORT	IO_PORTC
+#define DETECT_CIRCUIT_RESET_PORT	PORTC
+#define DETECT_CIRCUIT_RESET_PINS	PINC
+#define DETECT_CIRCUIT_RESET_PIN	4
 
-#define eSETUP_PORT					IO_PORTB
-#define SETUP_PINS					PINB
-#define	SETUP_PIN0					0
-#define	SETUP_PIN1					1
+#define eGENERIC_OUTPUT_PORT		IO_PORTC
+#define GENERIC_OUTPUT_PORT		PORTC
+#define GENERIC_OUTPUT_PINS		PINC
+#define GENERIC_OUTPUT_PIN		5
+
+#define eSETUP_PORT			IO_PORTB
+#define SETUP_PORT			PORTB
+#define SETUP_PINS			PINB
+#define	SETUP_PIN0			0
+#define	SETUP_PIN1			1
 
 #define TEST_LED_ON					IO_On(GENERIC_OUTPUT_PORT, GENERIC_OUTPUT_PIN)
 #define TEST_LED_OFF				IO_Off(GENERIC_OUTPUT_PORT, GENERIC_OUTPUT_PIN)
@@ -125,9 +131,38 @@ static void readTestMode(void);
 
 static int8_t setupStateMachine(void);
 
+static void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+static void wakeMaster(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+static void startWakeTimer(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+static void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+static void testAndResetCount(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+
+#ifdef TEST_HARNESS
+static void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
+#else
+#define onStateChange NULL
+#endif
+
 /*
  * Main state machine pointers
  */
+
+static const SM_STATE stateIdle = {IDLE, NULL, onIdleState};
+static const SM_STATE stateSending1 = {SENDING1, NULL, onStateChange};
+static const SM_STATE stateSending2 = {SENDING2, NULL, onStateChange};
+static const SM_STATE stateSending3 = {SENDING3, NULL, onStateChange};
+static const SM_STATE stateLevelTest = {LEVEL_TEST, NULL, onStateChange};
+
+static const SM_ENTRY sm[] = {
+	{&stateIdle,		DETECT,			wakeMaster,		&stateSending1	},
+	{&stateIdle,		TIMER,			testAndResetCount,	&stateIdle	},
+
+	{&stateSending1,	SEND_COMPLETE,	startWakeTimer,	&stateSending2	},
+	{&stateSending2,	TIMER,			sendData,		&stateSending3	},
+	{&stateSending3,	SEND_COMPLETE,	NULL,			&stateIdle		},
+	
+	{NULL,				(STATES)0,		NULL,			NULL}
+};
 
 /* 
  * Private Variables
@@ -257,7 +292,7 @@ static void setupTimers(void)
 	TMR8_Tick_AddTimerConfig(&applicationTick);
 }
 
-void testAndResetCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+static void testAndResetCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -274,20 +309,20 @@ void testAndResetCount(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 	}
 }
 
-void wakeMaster(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+static void wakeMaster(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	COMMS_Send("WAKE");
 	SM_Event(smIndex, SEND_COMPLETE);
 }
 
-void startWakeTimer(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+static void startWakeTimer(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	TMR8_Tick_SetNewReloadValue(&applicationTick, COMMS_TICK_MS);
 }
 
-void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+static void sendData(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	
@@ -352,36 +387,11 @@ static void writeTemperatureToMessage(char * msg, TEMPERATURE_SENSOR eSensor)
 	}
 }
 
-void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e)
+static void onIdleState(SM_STATEID old, SM_STATEID new, SM_EVENT e)
 {
 	(void)old; (void)new; (void)e;
 	TMR8_Tick_SetNewReloadValue(&applicationTick, IDLE_TICK_MS);
 }
-
-void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e)
-{
-	(void)old; (void)new; (void)e;
-}
-
-#ifdef TEST_HARNESS
-static void onStateChange(SM_STATEID old, SM_STATEID new, SM_EVENT e);
-#endif
-
-static const SM_STATE stateIdle = {IDLE, NULL, onIdleState};
-static const SM_STATE stateSending1 = {SENDING1, NULL, onStateChange};
-static const SM_STATE stateSending2 = {SENDING2, NULL, onStateChange};
-static const SM_STATE stateSending3 = {SENDING3, NULL, onStateChange};
-static const SM_STATE stateLevelTest = {LEVEL_TEST, NULL, onStateChange};
-
-static const SM_ENTRY sm[] = {
-	{&stateIdle,		DETECT,			wakeMaster,		&stateSending1	},
-		
-	{&stateSending1,	SEND_COMPLETE,	startWakeTimer,	&stateSending2	},
-	{&stateSending2,	TIMER,			sendData,		&stateSending3	},
-	{&stateSending3,	SEND_COMPLETE,	NULL,			&stateIdle		},
-	
-	{NULL,				(STATES)0,		NULL,			NULL}
-};
 
 static int8_t setupStateMachine(void)
 {
